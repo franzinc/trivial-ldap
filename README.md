@@ -3,8 +3,11 @@ Franz Inc Introduction
 
 This is a fork of this repo: https://github.com/rwiker/trivial-ldap
 
+It was ported to work with native Allegro CL networking functions
+and to support case-sensitive reader.
+
 Introduction
-============
+------------
 
 One-two, one-two... is this thing working?
 
@@ -21,7 +24,7 @@ on trivial-ldap, so he graciously let me publish whatever changes I
 had.
 
 Changes
-=======
+-------
 
 LDAP Filter Parser
 ------------------
@@ -119,7 +122,8 @@ results to be fetched.)
 
 ### Examples:
 
-    (and (ldap:search *ldap* '(& (substring samaccountname "ra*") (= objectclass person))
+    (and (ldap:search *ldap* '(& (substring samaccountname "ra*")
+                                 (= objectclass person))
                       :attributes '("1.1") :size-limit 0 :paging-size 500)
          (loop for entry = (ldap:next-search-result *ldap*)
                while entry

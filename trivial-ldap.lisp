@@ -199,7 +199,8 @@
                 do (let ((c (char string i)))
                      (if (char= c #\\)
                        (cond ((and (< i (- string-length 1))
-                                   (member (char string (1+ i)) '(#\( #\) #\* #\\) :test #'char=))
+                                   (member (char string (1+ i))
+                                           '(#\( #\) #\* #\\) :test #'char=))
                               ;; LDAP v2 style escapes
                               (write-char (char string (1+ i)) s)
                               (incf i 1))
@@ -207,10 +208,15 @@
                                    (hex-digit-char-p (char string (+ i 1)))
                                    (hex-digit-char-p (char string (+ i 2))))
                               ;; LDAP v3 style escapes
-                              (write-char (code-char (parse-integer (subseq string (1+ i) (+ 3 i)) :radix 16)) s)
+                              (write-char (code-char
+                                           (parse-integer (subseq string
+                                                                  (1+ i) (+ 3 i))
+                                                          :radix 16))
+                                          s)
                               (incf i 2))
                              (t
-                              (error "invalid escape at position ~d in ~a" i string)))
+                              (error "invalid escape at position ~d in ~a"
+                                     i string)))
                        (write-char (char string i) s))))
           s)))))
 
@@ -239,7 +245,9 @@
      #+sbcl
      (coerce (sb-ext:string-to-octets string :external-format :utf-8) 'list)
      #+allegro
-     (coerce (excl:string-to-octets string :external-format :utf-8 :null-terminate nil) 'list)
+     (coerce (excl:string-to-octets string
+                                    :external-format :utf-8 :null-terminate nil)
+             'list)
      #+lispworks
      (coerce (external-format:encode-lisp-string string :utf-8) 'list)))
 
@@ -250,43 +258,45 @@
   (map 'string #'code-char char-code-list)
   #+ccl
   (ccl::decode-string-from-octets (make-array (list (length char-code-list))
-					      :element-type '(unsigned-byte 8)
-					      :initial-contents char-code-list)
-				  :external-format :utf-8)
+                                              :element-type '(unsigned-byte 8)
+                                              :initial-contents char-code-list)
+                                  :external-format :utf-8)
   #+sbcl
   (sb-ext:octets-to-string (make-array (list (length char-code-list))
-				       :element-type '(unsigned-byte 8)
-				       :initial-contents char-code-list)
-			   :external-format :utf-8)
+                                       :element-type '(unsigned-byte 8)
+                                       :initial-contents char-code-list)
+                           :external-format :utf-8)
   #+allegro
   (excl:octets-to-string (make-array (list (length char-code-list))
-				     :element-type '(unsigned-byte 8)
-				     :initial-contents char-code-list)
-			 :external-format :utf8)
+                                     :element-type '(unsigned-byte 8)
+                                     :initial-contents char-code-list)
+                         :external-format :utf8)
 
   #+lispworks
-  (external-format:decode-external-string (make-array (list (length char-code-list))
-                                                      :element-type '(unsigned-byte 8)
-                                                      :initial-contents char-code-list)
-                                          :utf-8))
+  (external-format:decode-external-string
+   (make-array (list (length char-code-list))
+               :element-type '(unsigned-byte 8)
+               :initial-contents char-code-list)
+   :utf-8))
 
-(defun char-code-vec->string (char-code-vec &key (start 0) (end (length char-code-vec)))
+(defun char-code-vec->string (char-code-vec
+                              &key (start 0) (end (length char-code-vec)))
   "Convert a vector of bytes into a string."
   (assert (typep char-code-vec '(array (unsigned-byte 8))))
   #-(or allegro ccl sbcl lispworks)
   (map 'string #'code-char char-code-list)
   #+ccl
   (ccl::decode-string-from-octets char-code-vec :start start :end end
-				  :external-format :utf-8)
+                                  :external-format :utf-8)
   #+sbcl
   (sb-ext:octets-to-string char-code-vec :start start :end end
-			   :external-format :utf-8)
+                           :external-format :utf-8)
   #+allegro
   (excl:octets-to-string char-code-vec :start start :end end
-			 :external-format :utf8)
-
+                         :external-format :utf8)
   #+lispworks
-  (external-format:decode-external-string char-code-vec :utf-8 :start start :end end))
+  (external-format:decode-external-string char-code-vec :utf-8
+                                          :start start :end end))
 
 (defun split-substring (string &optional list)
   "Split a substring filter value into a list, retaining the * separators."
@@ -294,7 +304,7 @@
     (if pos
 	(let* ((capture (subseq string 0 pos))
 	       (vals (if (string= capture "") (list "*") (list "*" capture))))
-	  (split-substring (subseq string (1+ pos))(append vals list)))
+	  (split-substring (subseq string (1+ pos)) (append vals list)))
 	(nreverse (if (string= string "") list (push string list))))))
 
 ;;;;
@@ -306,11 +316,14 @@
     "As defined by the LDAP RFC.")
   
   (define-constant +ber-class-id+
-      '((universal   . #b00000000) (application . #b01000000)
-	(context     . #b10000000) (private     . #b11000000)))
+      '((universal   . #b00000000)
+        (application . #b01000000)
+        (context     . #b10000000)
+        (private     . #b11000000)))
   
   (define-constant +ber-p/c-bit+
-      '((primitive   . #b00000000) (constructed . #b00100000)))
+      '((primitive   . #b00000000)
+        (constructed . #b00100000)))
   
   (define-constant +ber-multibyte-tag-number+ #b00011111
     "Flag indicating tag number requires > 1 byte")
@@ -338,26 +351,27 @@ CLASS should be the symbol universal, applicaiton, context, or private.
 P/C should be the symbol primitive or constructed.
 NUMBER should be either an integer or LDAP application name as symbol."
     (let ((byte (ber-tag-type class p/c))
-	  (number (etypecase number-or-command 
-		    (integer number-or-command)
-		    (symbol (ldap-command number-or-command)))))
+          (number (etypecase number-or-command
+                    (integer number-or-command)
+                    (symbol (or (ldap-command number-or-command)
+                                (error "Unknown BER tag: ~A" number-or-command))))))
       (cond 
-	((< number 31)  (list (+ byte number)))
-	((< number 128) (list (+ byte +ber-multibyte-tag-number+) number))
-	(t (error "Length of tag exceeds maximum bounds (0-127).")))))
+       ((< number 31)  (list (+ byte number)))
+       ((< number 128) (list (+ byte +ber-multibyte-tag-number+) number))
+       (t (error "Length of tag exceeds maximum bounds (0-127).")))))
 
   (defun ber-length (it)
     "Given a sequence or integer, return a BER length."
     (let ((length (etypecase it
-		    (sequence (length it))
-		    (integer it))))
+                    (sequence (length it))
+                    (integer it))))
       (cond
-	((< length 128) (list length))
-	((< length +max-int+)
-	 (let ((output (base10->base256 length)))
-	   (append (list (+ (length output) +ber-long-length-marker+)) 
-		   output)))
-	(t (error "Length exceeds maximum bounds")))))
+       ((< length 128) (list length))
+       ((< length +max-int+)
+        (let ((output (base10->base256 length)))
+          (append (list (+ (length output) +ber-long-length-marker+))
+                  output)))
+       (t (error "Length exceeds maximum bounds")))))
 
   (defun ber-msg (tag data)
     "Given a BER tag and a sequence of data, return a message"
@@ -412,46 +426,46 @@ NUMBER should be either an integer or LDAP application name as symbol."
   
   (define-constant +ldap-result-codes+
       '((0  . (success			 "Success"))
-	(1  . (operationsError		 "Operations Error"))
-	(2  . (protocolError		 "Protocol Error"))
-	(3  . (timeLimitExceeded	 "Time Limit Exceeded"))
-	(4  . (sizeLimitExceeded	 "Size Limit Exceeded"))
-	(5  . (compareFalse		 "Compare False"))
-	(6  . (compareTrue		 "Compare True"))
-	(7  . (authMethodNotSupported	 "Auth Method Not Supported"))
-	(8  . (strongAuthRequired	 "Strong Auth Required"))
-	(10 . (referral			 "Referral"))
-	(11 . (adminLimitExceeded	 "Admin Limit Exceeded"))
-	(12 . (unavailableCriticalExtension "Unavailable Critical Extension"))
-	(13 . (confidentialityRequired	 "Confidentiality Required"))
-	(14 . (saslBindInProgress	 "SASL Bind In Progress"))
-	(16 . (noSuchAttribute		 "No Such Attribute"))
-	(17 . (undefinedAttributeType	 "Undefined Attribute Type"))
-	(18 . (inappropriateMatching	 "Inappropriate Matching"))
-	(19 . (constraintViolation	 "Constraint Violation"))
-	(20 . (attributeOrValueExists	 "Attribute Or Value Exists"))
-	(21 . (invalidAttributeSyntax	 "Invalid Attribute Syntax"))
-	(32 . (noSuchObject		 "No Such Object"))
-	(33 . (aliasProblem		 "Alias Problem"))
-	(34 . (invalidDNSyntax		 "Invalid DN Syntax"))
-	(36 . (aliasDereferencingProblem    "Alias Dereferencing Problem"))
-	(48 . (inappropriateAuthentication  "Inappropriate Authentication"))
-	(49 . (invalidCredentials	 "Invalid Credentials"))
-	(50 . (insufficientAccessRights	 "Insufficient Access Rights"))
-	(51 . (busy			 "Busy"))
-	(52 . (unavailable		 "Unavailable"))
-	(53 . (unwillingToPerform	 "Unwilling To Perform"))
-	(54 . (loopDetect		 "Loop Detect"))
-	(64 . (namingViolation		 "Naming Violation"))
-	(65 . (objectClassViolation	 "Object Class Violation"))
-	(66 . (notAllowedOnLeaf		 "Not Allowed On Leaf"))
-	(67 . (notAllowedOnRDN		 "Not Allowed On RDN"))
-	(68 . (entryAlreadyExists	 "Entry Already Exists"))
-	(69 . (objectClassModsProhibited "Object Class Mods Prohibited"))
-	(71 . (affectsMultipleDSAs	 "Affects Multiple DSAs"))
-	(80 . (other			 "Other"))))
+        (1  . (operationsError		 "Operations Error"))
+        (2  . (protocolError		 "Protocol Error"))
+        (3  . (timeLimitExceeded	 "Time Limit Exceeded"))
+        (4  . (sizeLimitExceeded	 "Size Limit Exceeded"))
+        (5  . (compareFalse		 "Compare False"))
+        (6  . (compareTrue		 "Compare True"))
+        (7  . (authMethodNotSupported	 "Auth Method Not Supported"))
+        (8  . (strongAuthRequired	 "Strong Auth Required"))
+        (10 . (referral			 "Referral"))
+        (11 . (adminLimitExceeded	 "Admin Limit Exceeded"))
+        (12 . (unavailableCriticalExtension "Unavailable Critical Extension"))
+        (13 . (confidentialityRequired	 "Confidentiality Required"))
+        (14 . (saslBindInProgress	 "SASL Bind In Progress"))
+        (16 . (noSuchAttribute		 "No Such Attribute"))
+        (17 . (undefinedAttributeType	 "Undefined Attribute Type"))
+        (18 . (inappropriateMatching	 "Inappropriate Matching"))
+        (19 . (constraintViolation	 "Constraint Violation"))
+        (20 . (attributeOrValueExists	 "Attribute Or Value Exists"))
+        (21 . (invalidAttributeSyntax	 "Invalid Attribute Syntax"))
+        (32 . (noSuchObject		 "No Such Object"))
+        (33 . (aliasProblem		 "Alias Problem"))
+        (34 . (invalidDNSyntax		 "Invalid DN Syntax"))
+        (36 . (aliasDereferencingProblem    "Alias Dereferencing Problem"))
+        (48 . (inappropriateAuthentication  "Inappropriate Authentication"))
+        (49 . (invalidCredentials	 "Invalid Credentials"))
+        (50 . (insufficientAccessRights	 "Insufficient Access Rights"))
+        (51 . (busy			 "Busy"))
+        (52 . (unavailable		 "Unavailable"))
+        (53 . (unwillingToPerform	 "Unwilling To Perform"))
+        (54 . (loopDetect		 "Loop Detect"))
+        (64 . (namingViolation		 "Naming Violation"))
+        (65 . (objectClassViolation	 "Object Class Violation"))
+        (66 . (notAllowedOnLeaf		 "Not Allowed On Leaf"))
+        (67 . (notAllowedOnRDN		 "Not Allowed On RDN"))
+        (68 . (entryAlreadyExists	 "Entry Already Exists"))
+        (69 . (objectClassModsProhibited "Object Class Mods Prohibited"))
+        (71 . (affectsMultipleDSAs	 "Affects Multiple DSAs"))
+        (80 . (other			 "Other"))))
 
-  ; export the result code symbols.
+  ;; export the result code symbols.
   (dolist (i +ldap-result-codes+) (export (second i) :ldap)))
 
 (defun ldap-result-code-string (code)
@@ -480,7 +494,7 @@ NUMBER should be either an integer or LDAP application name as symbol."
 (define-constant +ldap-filter-comparison-char+
   '((&  . 0)
     (\| . 1)
-    (!  . 2)
+    (:! . 2)
     (=  . 3)
     (>= . 5)
     (<= . 6)
@@ -519,33 +533,33 @@ NUMBER should be either an integer or LDAP application name as symbol."
 
 ;;; writers.
 (define-constant +ber-bind-tag+ 
-  (ber-tag 'application 'constructed 'bindrequest))
+  (ber-tag 'application 'constructed 'BindRequest))
 (define-constant +ber-add-tag+  
-  (ber-tag 'application 'constructed 'addrequest))
+  (ber-tag 'application 'constructed 'AddRequest))
 (define-constant +ber-del-tag+  
-  (ber-tag 'application 'primitive 'delrequest))
+  (ber-tag 'application 'primitive 'DelRequest))
 (define-constant +ber-moddn-tag+  
-  (ber-tag 'application 'constructed 'modifydnrequest))
+  (ber-tag 'application 'constructed 'ModifyDNRequest))
 (define-constant +ber-comp-tag+ 
-  (ber-tag 'application 'constructed 'comparerequest))
+  (ber-tag 'application 'constructed 'CompareRequest))
 (define-constant +ber-search-tag+
-  (ber-tag 'application 'constructed 'searchrequest))
+  (ber-tag 'application 'constructed 'SearchRequest))
 (define-constant +ber-abandon-tag+
-  (ber-tag 'application 'primitive 'abandonrequest))
+  (ber-tag 'application 'primitive 'AbandonRequest))
 (define-constant +ber-unbind-tag+
-  (ber-tag 'application 'primitive 'unbindrequest))
+  (ber-tag 'application 'primitive 'UnbindRequest))
 (define-constant +ber-modify-tag+
-  (ber-tag 'application 'constructed 'modifyrequest))
+  (ber-tag 'application 'constructed 'ModifyRequest))
 (define-constant +ber-controls-tag+
-    (car (ber-tag 'context 'constructed 0)))                 
+  (car (ber-tag 'context 'constructed 0)))
 
 ;;;; readers.
 (define-constant +ber-tag-controls+
     (car (ber-tag 'context 'constructed 0)))                 
 (define-constant +ber-tag-referral+
-    (car (ber-tag 'context 'constructed 'searchrequest)))
+    (car (ber-tag 'context 'constructed 'SearchRequest)))
 (define-constant +ber-tag-extendedresponse+
-    (car (ber-tag 'application 'constructed 'extendedresponse)))
+    (car (ber-tag 'application 'constructed 'ExtendedResponse)))
 (define-constant +ber-tag-ext-name+  
     (car (ber-tag 'context 'primitive 10)))
 (define-constant +ber-tag-ext-val+ 
@@ -721,7 +735,7 @@ NUMBER should be either an integer or LDAP application name as symbol."
             (try-match (accept '= 'filtertype) (setq start-condition 'value))
             (try-match (accept-while #'alphanumericp 'attr))))))))
 
-(yacc:define-parser *ldap-filter-parser*
+(cl-yacc:define-parser *ldap-filter-parser*
   (:start-symbol filter)
   (:terminals (lpar rpar semicolon colon and or not 
                     filtertype attr string))
@@ -765,8 +779,8 @@ NUMBER should be either an integer or LDAP application name as symbol."
    string))
 
 (defun listify-filter (filter)
-  (let ((parsed-filter (yacc:parse-with-lexer (ldap-filter-lexer filter) *ldap-filter-parser*)))
-    parsed-filter))
+  (cl-yacc:parse-with-lexer (ldap-filter-lexer filter)
+                            *ldap-filter-parser*))
 
 (defun seq-filter (filter)
   (let* ((filter (etypecase filter
@@ -782,11 +796,11 @@ NUMBER should be either an integer or LDAP application name as symbol."
     (when (eq op 'and)
       (setq op '&))
     (when (eq op 'not)
-      (setq op '!))
+      (setq op :!))
     (when (eq op 'wildcard)
       (setq op 'substring))
     (cond
-     ((eq '! op) (seq-constructed-choice (ldap-filter-comparison-char op)
+     ((eq :! op) (seq-constructed-choice (ldap-filter-comparison-char op)
                                          (seq-filter (second filter))))
      ((or (eq '&  op) (eq '\| op))
       (seq-constructed-choice (ldap-filter-comparison-char op)
@@ -1123,14 +1137,14 @@ indicates encryption. Other values means plain wrapping.")
 
 (defmethod mesg-incf ((ldap ldap)) (incf (mesg ldap)))
 
-#-lispworks
+#-(or lispworks allegro)
 (defmethod get-stream ((ldap ldap))
   "Open a usocket to the ldap server and set the ldap object's slot.
-If the port number is 636 or the SSLflag is not null, the stream
-will be made with CL+SSL."
+   If the port number is 636 or the SSLflag is not null, the stream
+   will be made with CL+SSL."
   (let ((existing-stream (ldapstream ldap)))
-    (unless (and (streamp existing-stream) 
-		 (open-stream-p existing-stream))
+    (unless (and (streamp existing-stream)
+                 (open-stream-p existing-stream))
       (let* ((sock (usocket:socket-connect (host ldap) (port ldap)
 					   :element-type '(unsigned-byte 8)))
 	     (stream 
@@ -1144,9 +1158,9 @@ will be made with CL+SSL."
 
 #+lispworks
 (defmethod get-stream ((ldap ldap))
-  "Open a usocket to the ldap server and set the ldap object's slot.
-If the port number is 636 or the SSLflag is not null, the stream
-will be made with CL+SSL."
+  "Open a socket to the ldap server and set the ldap object's slot.
+   If the port number is 636 or the SSLflag is not null, the stream
+   will be made with CL+SSL."
   (let ((connection-timeout 20)
         (read-timeout 20)
         (write-timeout 20)
@@ -1161,14 +1175,29 @@ will be made with CL+SSL."
                                            :timeout connection-timeout
                                            :read-timeout read-timeout
                                            :ssl-ctx ssl-ctx
-                                           :write-timeout
-                                           write-timeout
+                                           :write-timeout write-timeout
                                            :errorp t))
         (debug-mesg ldap "Opening socket and stream.")
         (setf (ldapstream ldap) stream))))
   (ldapstream ldap))
 
-#-lispworks
+#+allegro
+(defmethod get-stream ((ldap ldap))
+  "Open a socket to the ldap server and set the ldap object's slot.
+   If the port number is 636 or the SSLflag is not null, the stream
+   will be using SSL encryption."
+  (let ((existing-stream (ldapstream ldap)))
+    (unless (and (streamp existing-stream)
+                 (open-stream-p existing-stream))
+      (let ((sock (socket:make-socket :remote-host (host ldap)
+                                      :remote-port (port ldap))))
+        (when (or (sslflag ldap) (= (port ldap) 636))
+          (setf sock (socket:make-ssl-client-stream sock)))
+        (debug-mesg ldap "Opening socket and stream.")
+        (setf (ldapstream ldap) sock))))
+  (ldapstream ldap))
+
+#-(or lispworks allegro)
 (defmethod close-stream ((ldap ldap))
   "Close an ldap connection if it is currently open."
   (let ((existing-stream (ldapstream ldap))
@@ -1180,7 +1209,7 @@ will be made with CL+SSL."
 	(close existing-stream)
 	(usocket:socket-close existing-sock)))))
 
-#+lispworks
+#+(or lispworks allegro)
 (defmethod close-stream ((ldap ldap))
   "Close an ldap connection if it is currently open."
   (let ((existing-stream (ldapstream ldap)))
@@ -1190,11 +1219,11 @@ will be made with CL+SSL."
         (close existing-stream)))))
 
 (defmethod possibly-reopen-and-rebind ((ldap ldap) 
-				       &optional (absolutely-no-bind nil))
+                                       &optional (absolutely-no-bind nil))
   "Take appropriate reopen or rebind actions based on the reuse-connection attr.
-If the attribute is nil, do nothing; if t, reopen; and, if bind, rebind.
-This function exists to help the poor saps (read: me) with very fast idletimeout
-settings on their LDAP servers."
+   If the attribute is nil, do nothing; if t, reopen; and, if bind, rebind.
+   This function exists to help the poor saps (read: me)
+   with very fast idletimeout settings on their LDAP servers."
   (debug-mesg ldap "reusing connection...")
   (let (stream)
     (when (reuse-connection ldap) 
@@ -1342,43 +1371,46 @@ and throw an error if it's anything else."
   "Parse an ldap object's response slot."
   (let ((received-content ()))
     (multiple-value-bind (content appname) (read-decoder (response ldap))
-      (cond
-	((eq appname 'searchresultentry)
-	 (let ((new-entry (new-entry-from-list content)))
-	   (cond
-	     ((null return-entry)
-	      (setf (entry-buffer ldap) new-entry)
-	      (setf received-content t))
-	     (t (setf received-content new-entry)))))
-	((eq appname 'searchresultreference))
-	((eq appname 'searchresultdone)
-         (destructuring-bind (result-code matched-dn error-message . rest)
-             content
-           (declare (ignore matched-dn))
-           (when (and (not (eq (ldap-result-code-symbol result-code) 'success))
-                      error-message)
-             (cond ((eq (ldap-result-code-symbol result-code) 'referral)
-                    (error 'ldap-referral-error))
-                   ((eq (ldap-result-code-symbol result-code) 'sizeLimitExceeded)
-                    nil)
-                   (t
-                    (error 'ldap-error :mesg (format nil "Search error: code=~a, message=~a"
-                                                     result-code
-                                                     (ldap-result-code-string result-code)
-                                                     #+nil
-                                                     (char-code-vec->string error-message))))))
-           (when (and rest (consp rest) (consp (car rest)) (eq (car (car rest)) 'controls))
-             (let ((controls (second (first rest))))
-               (process-response-controls ldap controls))))
-         (setf (results-pending-p ldap) nil)
-	 (setf received-content nil))
-	((eq appname 'extendedresponse) 
-	 (handle-extended-response ldap content)
-	 (push content received-content)
-	 (setf (results-pending-p ldap) nil))
-	(t 
-	 (push content received-content)
-	 (setf (results-pending-p ldap) nil))))
+      (case appname
+       (SearchResultEntry
+        (let ((new-entry (new-entry-from-list content)))
+          (cond
+           ((null return-entry)
+            (setf (entry-buffer ldap) new-entry)
+            (setf received-content t))
+           (t (setf received-content new-entry)))))
+       (SearchResultReference
+        ;; do nothing
+        )
+       (SearchResultDone
+        (destructuring-bind (result-code matched-dn error-message . rest)
+            content
+          (declare (ignore matched-dn))
+          (when (and (not (eq (ldap-result-code-symbol result-code) 'success))
+                     error-message)
+            (cond ((eq (ldap-result-code-symbol result-code) 'referral)
+                   (error 'ldap-referral-error))
+                  ((eq (ldap-result-code-symbol result-code) 'sizeLimitExceeded)
+                   nil)
+                  (t
+                   (error 'ldap-error :mesg
+                          (format nil "Search error: code=~a, message=~a"
+                                  result-code
+                                  (ldap-result-code-string result-code)
+                                  #+nil (char-code-vec->string error-message))))))
+          (when (and rest
+                     (consp rest) (consp (car rest))
+                     (eq (car (car rest)) 'controls))
+            (process-response-controls ldap (second (first rest)))))
+        (setf (results-pending-p ldap) nil
+              received-content nil))
+       (ExtendedResponse
+        (handle-extended-response ldap content)
+        (push content received-content)
+        (setf (results-pending-p ldap) nil))
+       (otherwise
+        (push content received-content)
+        (setf (results-pending-p ldap) nil))))
     received-content))
 	
 (defmethod process-message ((ldap ldap) message &key (success 'success))
@@ -1410,15 +1442,16 @@ the directory server returned."
 |#
 
 (defun create-sasl-message (ldap mechanism buffer)
-  (ber-msg +ber-bind-tag+ (append (seq-integer +ldap-version+)
-                                  (seq-octet-string (user ldap))
-                                  (ber-msg '(#xa3);(ber-tag 'context 'primitive 35)
-                                           (append (seq-octet-string mechanism)
-                                                   (ber-tag 'universal 'primitive #x04)
-                                                   (ber-length (length buffer))
-                                                   (coerce buffer 'list)
-                                                   (seq-null)))
-                                  (seq-null))))
+  (ber-msg +ber-bind-tag+
+           (append (seq-integer +ldap-version+)
+                   (seq-octet-string (user ldap))
+                   (ber-msg '(#xa3)     ;(ber-tag 'context 'primitive 35)
+                            (append (seq-octet-string mechanism)
+                                    (ber-tag 'universal 'primitive #x04)
+                                    (ber-length (length buffer))
+                                    (coerce buffer 'list)
+                                    (seq-null)))
+                   (seq-null))))
 
 (defun send-sasl (ldap mechanism buffer)
   (send-message ldap (create-sasl-message ldap mechanism buffer))
@@ -1476,9 +1509,8 @@ the directory server returned."
      with need-reply
      with context = nil
      with reply-buffer = nil
-     with flags = nil
      with res = nil
-     do (multiple-value-bind (continue-reply context-result buffer flags-reply)
+     do (multiple-value-bind (continue-reply context-result buffer)
             (funcall *init-sec-fn*
                      (format nil "ldap@~a" (host ldap))
                      :flags '(:mutual :replay :integ)
@@ -1486,7 +1518,6 @@ the directory server returned."
                      :input-token reply-buffer)
           (setq need-reply continue-reply)
           (setq context context-result)
-          (setq flags flags-reply)
           (cond ((not (null buffer))
                  (setq res (send-sasl ldap "GSSAPI" buffer))
                  (when need-reply
@@ -1578,7 +1609,7 @@ existent bytes blocks..."
 (defmethod compare ((ldap ldap) dn-or-entry attribute value)
   "Assert DN has attribute with specified value."
   (process-message ldap (msg-compare dn-or-entry attribute value)
-		   :success 'comparetrue))
+		   :success 'compareTrue))
 
 (defmethod compare ((entry entry) (ldap ldap) attribute value)
   "Assert an entry has an att=val; return t or nil, or throw error."
@@ -1588,8 +1619,8 @@ existent bytes blocks..."
   "Compare entry's att/val; calle by both entry/compare methods."
   (multiple-value-bind (res code msg) (compare ldap dn attribute value)
     (declare (ignore res))
-    (cond ((eq code 'comparetrue) t)
-	  ((eq code 'comparefalse) nil)
+    (cond ((eq code 'compareTrue) t)
+	  ((eq code 'compareFalse) nil)
 	  (t (error 'ldap-response-error
 		    :mesg "Cannot compare entry's attribute/value."
 		    :dn dn :code code :msg msg)))))
@@ -1717,37 +1748,35 @@ LIST-OF-MODS is a list of (type att val) triples."
   "Return the sequence of bytes representing a modify message."
   (let ((dn (seq-octet-string (dn dn-or-entry)))
 	(mods 
-	 (mapcan #'(lambda (x) (seq-sequence 
-				(nconc
-				 (seq-enumerated (ldap-modify-type (first x)))
-				 (seq-att-and-values (second x) (third x)))))
-		 mod-list)))
+	 (mapcan #'(lambda (x)
+                 (seq-sequence
+                  (nconc (seq-enumerated (ldap-modify-type (first x)))
+                         (seq-att-and-values (second x) (third x)))))
+             mod-list)))
     (ber-msg +ber-modify-tag+ (append dn (seq-sequence mods)))))
 
 (defun msg-search (filter base scope deref size time types attrs &optional paging-size paging-cookie)
   "Return the sequence of bytes representing a search message."
   (let ((filter (seq-filter filter))
-	(base   (seq-octet-string base))
-	(scope  (seq-enumerated scope))
-	(deref  (seq-enumerated deref))
-	(size   (seq-integer size))
-	(time   (seq-integer time))
-	(types  (seq-boolean types))
-	(attrs  (seq-attribute-list attrs))
+        (base   (seq-octet-string base))
+        (scope  (seq-enumerated scope))
+        (deref  (seq-enumerated deref))
+        (size   (seq-integer size))
+        (time   (seq-integer time))
+        (types  (seq-boolean types))
+        (attrs  (seq-attribute-list attrs))
         (controls
          (when (and paging-size
                     (zerop size))
-           (seq-constructed-choice 0
-                                   (seq-sequence
-                                    (nconc
-                                     (seq-octet-string +ldap-control-extension-paging+)
-                                     (seq-boolean t)
-                                     (seq-octet-string (seq-sequence
-                                                        (nconc
-                                                         (seq-integer paging-size)
-                                                         (seq-octet-string paging-cookie))))))))))
+           (seq-constructed-choice
+            0 (seq-sequence
+               (nconc (seq-octet-string +ldap-control-extension-paging+)
+                      (seq-boolean t)
+                      (seq-octet-string (seq-sequence
+                                         (nconc (seq-integer paging-size)
+                                                (seq-octet-string paging-cookie))))))))))
     (ber-msg +ber-search-tag+ 
-	     (append base scope deref size time types filter attrs controls))))
+             (append base scope deref size time types filter attrs controls))))
 
 ;;;;
 ;;;; sequence reader & decoder functions
@@ -1782,10 +1811,10 @@ LIST-OF-MODS is a list of (type att val) triples."
                 (= tag-byte +ber-tag-extendedresponse+)
                 (= tag-byte +ber-tag-referral+))
             (let ((length (read-length message)))
-              (prog1
-                  (read-generic (copy-response-vec message :end length))
+              (prog1 (read-generic (copy-response-vec message :end length))
                 (discard-bytes message length))))
-           (t (error 'ldap-error :mesg (format nil "Unreadable tag value encountered: ~s" tag-byte)))))))
+           (t (error 'ldap-error :mesg
+                     (format nil "Unreadable tag value encountered: ~s" tag-byte)))))))
 
 (define-constant +ber-app-const-base+
   (car (ber-tag 'application 'constructed 0)))
@@ -1800,16 +1829,14 @@ LIST-OF-MODS is a list of (type att val) triples."
   "Read an int from the message."
   (let ((length (pop-byte message)))
     (with-slots (vec ptr) message
-      (prog1
-          (octet-vec->int vec :start ptr :end (+ ptr length))
+      (prog1 (octet-vec->int vec :start ptr :end (+ ptr length))
         (incf ptr length)))))
 
 (defun read-string (message)
   "Read a string from the message."
   (let ((length (read-length message)))
     (with-slots (vec ptr) message
-      (prog1
-          (char-code-vec->string vec :start ptr :end (+ ptr length))
+      (prog1 (char-code-vec->string vec :start ptr :end (+ ptr length))
         (incf ptr length)))))
 
 (defun read-octets (message)
@@ -1827,8 +1854,7 @@ LIST-OF-MODS is a list of (type att val) triples."
       first-byte
       (with-slots (vec ptr) message
         (let ((byte-length (- first-byte 128)))
-          (prog1
-              (base256-vec->base10 vec :start ptr :end (+ ptr byte-length))
+          (prog1 (base256-vec->base10 vec :start ptr :end (+ ptr byte-length))
             (incf ptr byte-length)))))))
 
 (defun read-message-number (response expected-mesg-number)
