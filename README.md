@@ -3,8 +3,10 @@ Franz Inc Introduction
 
 This is a fork of this repo: https://github.com/rwiker/trivial-ldap
 
-It was ported to work with native Allegro CL networking functions
-and to support case-sensitive reader.
+It was ported to work with native [Allegro Common
+Lisp](https://franz.com) networking functions and to support a
+case-sensitive reader.  All modifications by Franz Inc. are in the
+public domain.
 
 Introduction
 ------------
