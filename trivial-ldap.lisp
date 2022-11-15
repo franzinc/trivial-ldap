@@ -22,7 +22,7 @@
   (list :objectsid :objectguid))
 
 (defun attribute-binary-p (attribute-name)
-  (let ((name-sym (intern (string-upcase (if (symbolp attribute-name)
+  (let ((name-sym (intern (string-downcase (if (symbolp attribute-name)
                                            (symbol-name attribute-name)
                                            attribute-name))
                           :keyword)))
@@ -30,7 +30,7 @@
     (member name-sym *binary-attributes*)))
 
 (defun (setf attribute-binary-p) (value attribute-name)
-  (let ((name-sym (intern (string-upcase (if (symbolp attribute-name)
+  (let ((name-sym (intern (string-downcase (if (symbolp attribute-name)
                                            (symbol-name attribute-name)
                                            attribute-name))
                           :keyword)))
@@ -875,7 +875,7 @@ NUMBER should be either an integer or LDAP application name as symbol."
 	 (rdn (subseq dn 0 (position #\, dn)))
 	 (rdn-att (subseq rdn 0 eql-pos))
 	 (rdn-val (subseq rdn (1+ eql-pos) (length rdn))))
-    (values rdn (list (intern (string-upcase rdn-att) :keyword) rdn-val))))
+    (values rdn (list (intern (string-downcase rdn-att) :keyword) rdn-val))))
 
 (defun new-entry (dn &key (attrs ()) (infer-rdn t))
   "Instantiate a new entry object."
@@ -975,7 +975,7 @@ return list of lists of attributes."
                         :report "Handle this attribute as binary and add it to the list of binary attributes"
                         (setf (attribute-binary-p key) t)
                         (cadr x)))))
-        (list (cons (intern (string-upcase key) :keyword) value)))
+        (list (cons (intern (string-downcase key) :keyword) value)))
     (skip-entry ()
       :report "Ignore this attribute"
       nil)))
